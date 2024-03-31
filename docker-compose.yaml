@@ -1,0 +1,54 @@
+services:
+
+  server:
+    container_name: nginx-app
+    image: nginx:1.25.4-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - desafio-node
+    depends_on:
+      - app
+
+  app:
+    container_name: node-app
+    image: cavalheirodev/node-app
+    build: .
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 30s docker-entrypoint.sh
+    command: sh -c "npm ci --omit=dev && node index.js"
+    networks:
+      - desafio-node
+    volumes:
+      - node-app-volume:/app
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    container_name: mysql-app
+    restart: on-failure
+    volumes:
+      - mysql-app-data:/var/lib/mysql
+      - ./scripts:/docker-entrypoint-initdb.d
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - desafio-node
+
+networks:
+  desafio-node:
+    driver: bridge
+
+volumes:
+  node-app-volume:
+    name: node-app-volume
+    driver: local
+    driver_opts:
+      type: none
+      device: ./
+      o: bind
+
+  mysql-app-data:
